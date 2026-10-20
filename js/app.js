@@ -11,11 +11,11 @@ const fontBtn = document.getElementById('fontBtn');
 // ---------- 旅程清單：要新增旅程，在這裡加一筆，再放一個 json 檔到 data/ ----------
 const TRIPS = [
   {
-    id: 'australia', icon: '🇦🇺', title: '澳洲黃金海岸自駕', when: '2027/7/2–7/10 全家旅遊',
+    id: 'australia', icon: '🦘', title: '澳洲黃金海岸自駕', when: '2027/7/2–7/10 全家旅遊',
     file: 'data/scenarios.json', accent: 'en-AU', sample: "G'day! How ya going?"
   },
   {
-    id: 'canada', icon: '🇨🇦', title: '加拿大亞伯達探親', when: '2027/1/18–5/24 卡加利／愛德蒙頓',
+    id: 'canada', icon: '🍁', title: '加拿大亞伯達探親', when: '2027/1/18–5/24 卡加利／愛德蒙頓',
     file: 'data/canada.json', accent: 'en-CA', sample: "Hi there! How's it going?"
   }
 ];
