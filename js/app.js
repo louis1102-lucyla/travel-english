@@ -270,6 +270,7 @@ function lineCard(line, vocab = {}) {
 
 // 跟讀失敗時，依照錯誤原因告訴使用者怎麼解決
 const IN_APP = /Line\/|FBAN|FBAV|Instagram|MicroMessenger/i.test(navigator.userAgent); // LINE、FB 等 App 內建的瀏覽器
+const IS_IPHONE = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function micErrorText(err) {
   const inApp = IN_APP ? '你現在是在 LINE／FB 裡面開的網頁，請按右上角選「用瀏覽器開啟」改用 Chrome 或 Safari。' : '';
   switch (err) {
@@ -284,7 +285,9 @@ function micErrorText(err) {
     case 'language-not-supported':
       return '這支手機的語音辨識不支援英文，請在手機的語音輸入設定加入英文。';
     case 'aborted':
-      return '收音被中斷了，再按一次 🎤 試試。';
+      return IS_IPHONE
+        ? '收音被中斷了：請到 iPhone「設定 → 一般 → 鍵盤」，確認有打開「啟用聽寫」，而且「鍵盤」裡有加入「英文」鍵盤，再按一次 🎤。'
+        : '收音被中斷了，再按一次 🎤 試試。';
     default:
       return `沒有聽清楚（${err}），再試一次。${inApp}`;
   }

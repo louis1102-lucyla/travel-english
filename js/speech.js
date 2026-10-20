@@ -132,15 +132,20 @@ const Speech = (() => {
 
   // 開始聽，講完後回傳辨識出的幾個候選句子（陣列）
   function listen() {
-    // 示範發音還在念的話，麥克風會被占用，先停掉
-    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    // 示範發音還在念的話，麥克風會被占用，先停掉、稍等一下再收音
+    const busy = 'speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending);
+    if (busy) speechSynthesis.cancel();
     const lang = badLangs.has(accent) ? 'en-US' : accent; // 用目前旅程的口音來辨識
-    return listenOnce(lang).catch(err => {
-      if ((err === 'language-not-supported' || err === 'bad-grammar') && lang !== 'en-US') {
-        badLangs.add(accent);
-        return listenOnce('en-US');
-      }
-      throw err;
+    const first = busy ? wait(300).then(() => listenOnce(lang)) : listenOnce(lang);
+    return first.catch(err => {
+      // 不支援這個口音：改用美式英文
+      // aborted：iPhone 沒有這個口音的聽寫時會一開始就中斷，也改用美式英文再試一次
+      const retry = err === 'language-not-supported' || err === 'bad-grammar' || err === 'aborted';
+      if (!retry) throw err;
+      return wait(300)
+        .then(() => listenOnce('en-US'))
+        .then(r => { if (lang !== 'en-US') badLangs.add(accent); return r; })
+        .catch(() => { throw err; }); // 再試也失敗，回報原本的錯誤
     });
   }
 
