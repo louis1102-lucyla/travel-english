@@ -151,9 +151,15 @@ const Speech = (() => {
     });
   }
 
+  // 同一時間只能有一個收音；上一個還沒結束就開新的，iPhone 會把新的中斷
+  let activeRec = null;
+
   function listenOnce(lang) {
+    if (activeRec) { try { activeRec.abort(); } catch {} activeRec = null; }
     return new Promise((resolve, reject) => {
       const rec = new Recognition();
+      activeRec = rec;
+      const done = () => { if (activeRec === rec) activeRec = null; };
       rec.lang = lang;
       rec.interimResults = false;
       rec.maxAlternatives = IS_IOS ? 1 : 3; // 取 3 個候選，挑最接近的打分（iPhone 只給 1 個）
@@ -164,8 +170,8 @@ const Speech = (() => {
         if (e.error === 'no-speech' || /no speech/i.test(lastErrorDetail)) resolve([]); // iPhone 沒聽到聲音會報成 aborted
         else reject(e.error);
       };
-      rec.onend = () => resolve([]); // 沒聽到任何聲音
-      try { rec.start(); } catch { reject('start-failed'); }
+      rec.onend = () => { done(); resolve([]); }; // 沒聽到任何聲音
+      try { rec.start(); } catch { done(); reject('start-failed'); }
     });
   }
 

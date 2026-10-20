@@ -8,6 +8,9 @@ const backBtn = document.getElementById('backBtn');
 const speedBtn = document.getElementById('speedBtn');
 const fontBtn = document.getElementById('fontBtn');
 
+// 版本號：每次更新加 1，要和 index.html 裡的 ?v= 一致（錯誤訊息會顯示，方便確認手機拿到的是新版）
+const APP_VERSION = 4;
+
 // ---------- 旅程清單：要新增旅程，在這裡加一筆，再放一個 json 檔到 data/ ----------
 const TRIPS = [
   {
@@ -69,7 +72,7 @@ function myLines(s) {
 function renderHome() {
   pageTitle.textContent = '旅遊英文口說';
   backBtn.hidden = true;
-  app.innerHTML = `<p class="intro">選一個旅程開始練習。</p>`;
+  app.innerHTML = `<p class="intro">選一個旅程開始練習。<small style="opacity:.5">（v${APP_VERSION}）</small></p>`;
   for (const t of TRIPS) {
     const card = document.createElement('button');
     card.className = 'scenario-card';
@@ -251,6 +254,8 @@ function lineCard(line, vocab = {}) {
 
   const micBtn = el.querySelector('[data-act="mic"]');
   if (micBtn) micBtn.onclick = async () => {
+    if (listening) return; // 正在收音時，連按或按別句都不理，避免 iPhone 把收音中斷
+    listening = true;
     micBtn.classList.add('recording');
     micBtn.textContent = '🎤 聽你說…';
     try {
@@ -263,13 +268,17 @@ function lineCard(line, vocab = {}) {
       result.textContent = micErrorText(err);
       // 附上系統給的詳細原因（小字），方便回報問題
       const detail = Speech.lastErrorDetail;
-      if (detail) result.insertAdjacentHTML('beforeend', `<div class="heard">詳細原因：${escapeHtml(detail)}</div>`);
+      result.insertAdjacentHTML('beforeend',
+        `<div class="heard">${detail ? `詳細原因：${escapeHtml(detail)}・` : ''}代碼 ${escapeHtml(String(err))}・v${APP_VERSION}</div>`);
     }
+    listening = false;
     micBtn.classList.remove('recording');
     micBtn.textContent = '🎤 跟讀';
   };
   return el;
 }
+
+let listening = false; // 是否正在收音（整個頁面同時只收一句）
 
 // 跟讀失敗時，依照錯誤原因告訴使用者怎麼解決
 const IN_APP = /Line\/|FBAN|FBAV|Instagram|MicroMessenger/i.test(navigator.userAgent); // LINE、FB 等 App 內建的瀏覽器
