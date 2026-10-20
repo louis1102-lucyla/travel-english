@@ -5,20 +5,52 @@
 const Speech = (() => {
   // ---------- 1. 念出英文（TTS，Text-To-Speech）----------
   let voice = null;
+  let onVoicesChanged = () => {};
+  const VOICE_KEY = 'travel-english-voice';
 
-  // 挑選聲音：優先澳洲口音，沒有就用英國、再沒有就用任何英文
+  // iPhone/Mac 內建的「趣味聲音」和舊式合成聲音，聽起來像機器人，要排除
+  const ROBOT_NAMES = ['Albert', 'Bad News', 'Bahh', 'Bells', 'Boing', 'Bubbles', 'Cellos', 'Good News',
+    'Jester', 'Organ', 'Superstar', 'Trinoids', 'Whisper', 'Wobble', 'Zarvox', 'Fred', 'Junior', 'Ralph',
+    'Kathy', 'Eddy', 'Flo', 'Grandma', 'Grandpa', 'Reed', 'Rocko', 'Sandy', 'Shelley', 'Deranged', 'Hysterical'];
+  const isRobot = v =>
+    /eloquence|speech\.synthesis\.voice/i.test(v.voiceURI) ||
+    ROBOT_NAMES.some(n => v.name === n || v.name.startsWith(n + ' '));
+
+  // 幫聲音打分數：澳洲口音最優先，高品質（Premium/Enhanced/Natural）加分
+  function rank(v) {
+    let s = v.lang === 'en-AU' ? 30 : v.lang === 'en-GB' ? 20 : 10;
+    if (/premium/i.test(v.voiceURI + v.name)) s += 5;
+    else if (/enhanced|natural|neural|online/i.test(v.voiceURI + v.name)) s += 4;
+    if (/^(Karen|Lee|Matilda|Catherine|Natasha|William)\b/.test(v.name)) s += 2; // 常見好聽的澳洲聲音
+    return s;
+  }
+
+  // 可以選的英文聲音（已排除機器人聲，好的排前面）
+  function listVoices() {
+    if (!('speechSynthesis' in window)) return [];
+    return speechSynthesis.getVoices()
+      .filter(v => v.lang.replace('_', '-').startsWith('en') && !isRobot(v))
+      .sort((a, b) => rank(b) - rank(a));
+  }
+
+  // 挑選聲音：如果你在選單選過就用你選的，否則自動挑分數最高的
   function pickVoice() {
-    const voices = speechSynthesis.getVoices();
-    voice =
-      voices.find(v => v.lang === 'en-AU') ||
-      voices.find(v => v.lang === 'en-GB') ||
-      voices.find(v => v.lang.startsWith('en')) ||
-      null;
+    const voices = listVoices();
+    let saved = null;
+    try { saved = localStorage.getItem(VOICE_KEY); } catch {}
+    voice = voices.find(v => v.voiceURI === saved) || voices[0] || null;
+    onVoicesChanged();
   }
   if ('speechSynthesis' in window) {
     pickVoice();
     speechSynthesis.onvoiceschanged = pickVoice; // 有些瀏覽器聲音清單是之後才載入
   }
+
+  function setVoice(uri) {
+    try { localStorage.setItem(VOICE_KEY, uri); } catch {}
+    pickVoice();
+  }
+  const currentVoice = () => voice;
 
   // 防止「開頭被吃掉一兩個音節」：
   // 電腦/藍牙耳機的音效裝置閒置時會休眠，聲音開始後才醒來，開頭就被切掉。
@@ -160,5 +192,9 @@ const Speech = (() => {
     return best;
   }
 
-  return { speak, listen, canListen, compare, bestMatch };
+  return {
+    speak, listen, canListen, compare, bestMatch,
+    listVoices, setVoice, currentVoice,
+    set onVoicesChanged(fn) { onVoicesChanged = fn; }
+  };
 })();

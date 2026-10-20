@@ -56,6 +56,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
 main { max-width: 640px; margin: 0 auto; padding: 16px; }
 .banner { position: fixed; bottom: 0; left: 0; right: 0; padding: 12px 16px; background: var(--bad-soft); color: var(--text); font-size: .9rem; }
 
+/* ===== 示範聲音選單 ===== */
+.voice-picker {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  padding: 10px 14px; margin-bottom: 14px;
+}
+.voice-picker .label { font-weight: 700; font-size: .9rem; }
+.voice-picker .hint { color: var(--muted); font-size: .85rem; }
+.voice-picker select {
+  flex: 1; min-width: 0; font: inherit; font-size: .9rem; color: var(--text);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px;
+}
+
 /* ===== 情境列表 ===== */
 .intro { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
 .scenario-card {

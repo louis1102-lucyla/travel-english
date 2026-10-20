@@ -45,6 +45,7 @@ function renderList() {
   backBtn.hidden = true;
   const p = loadProgress();
   app.innerHTML = `<p class="intro">依照行程排列。看中文 → 自己先講 → 聽示範 → 按 🎤 跟讀打分。</p>`;
+  app.appendChild(voicePicker());
   for (const s of scenarios) {
     const lines = myLines(s);
     const done = lines.filter(l => (p[l.id] || 0) >= PASS).length;
@@ -60,6 +61,42 @@ function renderList() {
     card.onclick = () => (location.hash = `#/s/${s.id}`);
     app.appendChild(card);
   }
+}
+
+// ---------- 示範聲音選單 ----------
+const REGIONS = { AU: '澳洲', GB: '英國', US: '美國', IE: '愛爾蘭', IN: '印度', ZA: '南非', NZ: '紐西蘭', SG: '新加坡' };
+function voiceLabel(v) {
+  const region = REGIONS[v.lang.replace('_', '-').split('-')[1]] || v.lang;
+  const hq = /premium|enhanced|natural|neural|online/i.test(v.voiceURI + v.name) ? '・高品質' : '';
+  const name = v.name.replace(/\s*\(.*\)\s*$/, ''); // 去掉名稱後面括號裡的說明
+  return `${region}・${name}${hq}`;
+}
+
+function voicePicker() {
+  const box = document.createElement('div');
+  box.className = 'voice-picker';
+  const fill = () => {
+    const voices = Speech.listVoices();
+    const cur = Speech.currentVoice();
+    if (!voices.length) {
+      box.innerHTML = '<span class="label">🔈 示範聲音</span><span class="hint">這個瀏覽器沒有英文聲音</span>';
+      return;
+    }
+    box.innerHTML = `
+      <label class="label" for="voiceSel">🔈 示範聲音</label>
+      <select id="voiceSel">${voices.map(v =>
+        `<option value="${escapeHtml(v.voiceURI)}" ${cur && v.voiceURI === cur.voiceURI ? 'selected' : ''}>${escapeHtml(voiceLabel(v))}</option>`).join('')}
+      </select>
+      <button class="btn" id="voiceTest">試聽</button>`;
+    box.querySelector('#voiceSel').onchange = e => {
+      Speech.setVoice(e.target.value);
+      Speech.speak("G'day! How ya going?", rate());
+    };
+    box.querySelector('#voiceTest').onclick = () => Speech.speak("G'day! How ya going?", rate());
+  };
+  fill();
+  Speech.onVoicesChanged = () => { if (document.body.contains(box)) fill(); }; // 聲音清單晚載入時更新
+  return box;
 }
 
 // ---------- 畫面二：情境練習 ----------
