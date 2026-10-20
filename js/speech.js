@@ -127,17 +127,34 @@ const Speech = (() => {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const canListen = !!Recognition;
 
+  // 有些手機不支援用 en-AU / en-CA 辨識，失敗過的口音記下來，之後直接改用美式英文
+  const badLangs = new Set();
+
   // 開始聽，講完後回傳辨識出的幾個候選句子（陣列）
   function listen() {
+    // 示範發音還在念的話，麥克風會被占用，先停掉
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    const lang = badLangs.has(accent) ? 'en-US' : accent; // 用目前旅程的口音來辨識
+    return listenOnce(lang).catch(err => {
+      if ((err === 'language-not-supported' || err === 'bad-grammar') && lang !== 'en-US') {
+        badLangs.add(accent);
+        return listenOnce('en-US');
+      }
+      throw err;
+    });
+  }
+
+  function listenOnce(lang) {
     return new Promise((resolve, reject) => {
       const rec = new Recognition();
-      rec.lang = accent; // 用目前旅程的口音來辨識
+      rec.lang = lang;
       rec.interimResults = false;
       rec.maxAlternatives = 3; // 取 3 個候選，挑最接近的打分
       rec.onresult = e => resolve(Array.from(e.results[0]).map(a => a.transcript));
-      rec.onerror = e => reject(e.error);
+      // 沒聽到聲音不算錯誤，當成「沒聽到」處理
+      rec.onerror = e => (e.error === 'no-speech' ? resolve([]) : reject(e.error));
       rec.onend = () => resolve([]); // 沒聽到任何聲音
-      rec.start();
+      try { rec.start(); } catch { reject('start-failed'); }
     });
   }
 

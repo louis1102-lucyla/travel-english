@@ -260,14 +260,34 @@ function lineCard(line, vocab = {}) {
       if (r.heard) saveScore(line.id, r.score);
     } catch (err) {
       result.hidden = false;
-      result.textContent = err === 'not-allowed'
-        ? '請允許瀏覽器使用麥克風。'
-        : `沒有聽清楚（${err}），再試一次。`;
+      result.textContent = micErrorText(err);
     }
     micBtn.classList.remove('recording');
     micBtn.textContent = '🎤 跟讀';
   };
   return el;
+}
+
+// 跟讀失敗時，依照錯誤原因告訴使用者怎麼解決
+const IN_APP = /Line\/|FBAN|FBAV|Instagram|MicroMessenger/i.test(navigator.userAgent); // LINE、FB 等 App 內建的瀏覽器
+function micErrorText(err) {
+  const inApp = IN_APP ? '你現在是在 LINE／FB 裡面開的網頁，請按右上角選「用瀏覽器開啟」改用 Chrome 或 Safari。' : '';
+  switch (err) {
+    case 'not-allowed':
+      return inApp || '麥克風被擋住了：請在網址列左邊的圖示（或手機設定）允許這個網站使用麥克風，再重新整理網頁。';
+    case 'service-not-allowed':
+      return inApp || '手機的語音辨識沒有開：iPhone 請到「設定 → 一般 → 鍵盤」打開「啟用聽寫」；Android 請確認有安裝 Google App。';
+    case 'network':
+      return '語音辨識需要網路，請確認網路連線後再試一次。';
+    case 'audio-capture':
+      return '抓不到麥克風：請關掉其他正在用麥克風的 App（例如通話、錄音），再試一次。';
+    case 'language-not-supported':
+      return '這支手機的語音辨識不支援英文，請在手機的語音輸入設定加入英文。';
+    case 'aborted':
+      return '收音被中斷了，再按一次 🎤 試試。';
+    default:
+      return `沒有聽清楚（${err}），再試一次。${inApp}`;
+  }
 }
 
 // 顯示分數，講錯或漏講的字會標成橘色
