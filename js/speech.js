@@ -73,26 +73,34 @@ const Speech = (() => {
   }
   const wait = ms => new Promise(r => setTimeout(r, ms));
 
+  // 是不是 iPhone / iPad（新款 iPad 會假裝成 Mac，所以多判斷觸控）
+  const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
   let current = null; // 保留目前的句子，避免 Chrome 播到一半被回收而中斷
 
   // rate：1 = 正常速度，0.7 = 慢速
-  async function speak(text, rate = 1) {
-    if (!('speechSynthesis' in window)) return;
-    await keepAudioAwake();
-    // 正在念上一句時先停掉，並稍等一下再念（太快接著念，開頭會被切掉）
-    if (speechSynthesis.speaking || speechSynthesis.pending) {
-      speechSynthesis.cancel();
-      await wait(120);
-    }
-    return new Promise(resolve => {
+  function speak(text, rate = 1) {
+    if (!('speechSynthesis' in window)) return Promise.resolve();
+    const busy = speechSynthesis.speaking || speechSynthesis.pending;
+    if (busy) speechSynthesis.cancel();
+
+    const go = () => new Promise(resolve => {
+      // 每次念之前重新從系統清單拿聲音，避免用到過期的聲音物件（iPhone 會忽略它）
+      const v = voice && (speechSynthesis.getVoices().find(x => x.voiceURI === voice.voiceURI) || voice);
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = voice ? voice.lang : 'en-AU';
-      if (voice) u.voice = voice;
+      u.lang = v ? v.lang : 'en-AU';
+      if (v) u.voice = v;
       u.rate = rate;
       u.onend = u.onerror = () => { if (current === u) current = null; resolve(); };
       current = u;
       speechSynthesis.speak(u);
     });
+
+    // iPhone/iPad 規定：必須在點按鈕的「當下」立刻開始念，等待後再念會被忽略或換回預設聲音
+    if (IS_IOS) return go();
+    // 電腦：先叫醒音效裝置；正在念上一句時稍等一下再念（太快接著念，開頭會被切掉）
+    return keepAudioAwake().then(() => (busy ? wait(120) : null)).then(go);
   }
 
   // ---------- 2. 聽你講話（語音辨識）----------
