@@ -261,6 +261,9 @@ function lineCard(line, vocab = {}) {
     } catch (err) {
       result.hidden = false;
       result.textContent = micErrorText(err);
+      // 附上系統給的詳細原因（小字），方便回報問題
+      const detail = Speech.lastErrorDetail;
+      if (detail) result.insertAdjacentHTML('beforeend', `<div class="heard">詳細原因：${escapeHtml(detail)}</div>`);
     }
     micBtn.classList.remove('recording');
     micBtn.textContent = '🎤 跟讀';
@@ -286,7 +289,7 @@ function micErrorText(err) {
       return '這支手機的語音辨識不支援英文，請在手機的語音輸入設定加入英文。';
     case 'aborted':
       return IS_IPHONE
-        ? '收音被中斷了：請到 iPhone「設定 → 一般 → 鍵盤」，確認有打開「啟用聽寫」，而且「鍵盤」裡有加入「英文」鍵盤，再按一次 🎤。'
+        ? '收音被中斷了，再按一次 🎤，看到「聽你說…」再開始講。如果一直這樣，請確認 iPhone「設定 → 一般 → 鍵盤」有打開「啟用聽寫」。'
         : '收音被中斷了，再按一次 🎤 試試。';
     default:
       return `沒有聽清楚（${err}），再試一次。${inApp}`;

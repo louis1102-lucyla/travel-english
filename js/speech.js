@@ -131,21 +131,23 @@ const Speech = (() => {
   const badLangs = new Set();
 
   // 開始聽，講完後回傳辨識出的幾個候選句子（陣列）
+  // 最近一次錯誤的詳細說明（iPhone 會把真正原因放在這裡），顯示給使用者方便除錯
+  let lastErrorDetail = '';
+
   function listen() {
-    // 示範發音還在念的話，麥克風會被占用，先停掉、稍等一下再收音
-    const busy = 'speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending);
-    if (busy) speechSynthesis.cancel();
-    const lang = badLangs.has(accent) ? 'en-US' : accent; // 用目前旅程的口音來辨識
-    const first = busy ? wait(300).then(() => listenOnce(lang)) : listenOnce(lang);
-    return first.catch(err => {
-      // 不支援這個口音：改用美式英文
-      // aborted：iPhone 沒有這個口音的聽寫時會一開始就中斷，也改用美式英文再試一次
-      const retry = err === 'language-not-supported' || err === 'bad-grammar' || err === 'aborted';
-      if (!retry) throw err;
-      return wait(300)
-        .then(() => listenOnce('en-US'))
-        .then(r => { if (lang !== 'en-US') badLangs.add(accent); return r; })
-        .catch(() => { throw err; }); // 再試也失敗，回報原本的錯誤
+    lastErrorDetail = '';
+    // 示範發音還在念的話，麥克風會被占用，先停掉
+    if ('speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel();
+    // iPhone 只能用「設定 → 聽寫語言」裡有的語言辨識，一般只有美式英文，所以 iPhone 一律用 en-US。
+    // 而且 iPhone 規定要在按按鈕的當下開始收音，不能延遲或自動重試，所以這裡不等待。
+    const lang = IS_IOS || badLangs.has(accent) ? 'en-US' : accent; // 其他手機用目前旅程的口音來辨識
+    return listenOnce(lang).catch(err => {
+      // 不支援這個口音：記住，改用美式英文（Android/電腦沒有按鈕當下的限制，可以直接重試）
+      if ((err === 'language-not-supported' || err === 'bad-grammar') && lang !== 'en-US') {
+        badLangs.add(accent);
+        return listenOnce('en-US');
+      }
+      throw err;
     });
   }
 
@@ -154,10 +156,14 @@ const Speech = (() => {
       const rec = new Recognition();
       rec.lang = lang;
       rec.interimResults = false;
-      rec.maxAlternatives = 3; // 取 3 個候選，挑最接近的打分
+      rec.maxAlternatives = IS_IOS ? 1 : 3; // 取 3 個候選，挑最接近的打分（iPhone 只給 1 個）
       rec.onresult = e => resolve(Array.from(e.results[0]).map(a => a.transcript));
       // 沒聽到聲音不算錯誤，當成「沒聽到」處理
-      rec.onerror = e => (e.error === 'no-speech' ? resolve([]) : reject(e.error));
+      rec.onerror = e => {
+        lastErrorDetail = e.message || '';
+        if (e.error === 'no-speech' || /no speech/i.test(lastErrorDetail)) resolve([]); // iPhone 沒聽到聲音會報成 aborted
+        else reject(e.error);
+      };
       rec.onend = () => resolve([]); // 沒聽到任何聲音
       try { rec.start(); } catch { reject('start-failed'); }
     });
@@ -249,6 +255,7 @@ const Speech = (() => {
 
   return {
     speak, listen, canListen, compare, bestMatch,
+    get lastErrorDetail() { return lastErrorDetail; },
     listVoices, setVoice, currentVoice, setAccent,
     set onVoicesChanged(fn) { onVoicesChanged = fn; }
   };
