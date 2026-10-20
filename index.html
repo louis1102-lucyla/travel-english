@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>旅遊英文口說</title>
+  <meta name="theme-color" content="#0e7490">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 頂部標題列：在練習頁時會出現「返回」按鈕 -->
+  <header class="topbar">
+    <button id="backBtn" class="icon-btn" hidden aria-label="返回">‹</button>
+    <h1 id="pageTitle">旅遊英文口說</h1>
+    <!-- 語速切換：正常 / 慢速 -->
+    <button id="speedBtn" class="chip" aria-label="切換語速">🐢 慢速</button>
+  </header>
+
+  <!-- 主要內容區：由 js/app.js 依照目前頁面填入 -->
+  <main id="app"></main>
+
+  <!-- 瀏覽器不支援語音辨識時顯示的提示 -->
+  <div id="noMic" class="banner" hidden>
+    這個瀏覽器不支援語音辨識，請改用手機的 Chrome（Android）或 Safari（iPhone）。仍可聽示範發音。
+  </div>
+
+  <script src="js/speech.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

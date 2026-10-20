@@ -1,0 +1,130 @@
+/* ===== 顏色設定：改這裡就能換整個 APP 的配色 ===== */
+:root {
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --text: #1c2430;
+  --muted: #64707d;
+  --line: #e2e6ea;
+  --accent: #0e7490;      /* 主色：海洋藍綠 */
+  --accent-soft: #e0f2f6;
+  --staff: #fff7e6;       /* 對方說的話 */
+  --good: #15803d;
+  --bad: #c2410c;
+  --bad-soft: #ffedd5;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11161c;
+    --card: #1a2129;
+    --text: #e6ebf0;
+    --muted: #93a0ad;
+    --line: #2a333d;
+    --accent: #38bdf8;
+    --accent-soft: #10303d;
+    --staff: #2a2416;
+    --good: #4ade80;
+    --bad: #fb923c;
+    --bad-soft: #3a2414;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+  line-height: 1.5;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+
+/* ===== 頂部標題列 ===== */
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 16px;
+  background: var(--accent); color: #fff;
+}
+.topbar h1 { flex: 1; margin: 0; font-size: 1.1rem; }
+.icon-btn { background: none; border: 0; color: #fff; font-size: 1.8rem; line-height: 1; padding: 0 6px; }
+.chip {
+  border: 1px solid rgba(255,255,255,.6); background: transparent; color: #fff;
+  border-radius: 999px; padding: 4px 12px; font-size: .85rem;
+}
+.chip.on { background: #fff; color: var(--accent); }
+
+main { max-width: 640px; margin: 0 auto; padding: 16px; }
+.banner { position: fixed; bottom: 0; left: 0; right: 0; padding: 12px 16px; background: var(--bad-soft); color: var(--text); font-size: .9rem; }
+
+/* ===== 情境列表 ===== */
+.intro { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+.scenario-card {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px; margin-bottom: 10px; text-align: left;
+}
+.scenario-card .emoji { font-size: 2rem; }
+.scenario-card .info { flex: 1; }
+.scenario-card .title { font-weight: 700; }
+.scenario-card .when { color: var(--muted); font-size: .85rem; }
+.progress { height: 6px; background: var(--line); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+.progress > div { height: 100%; background: var(--good); }
+
+/* ===== 練習頁 ===== */
+.tips { background: var(--accent-soft); border-radius: 12px; padding: 12px 14px; font-size: .9rem; margin-bottom: 16px; }
+.section-title { font-size: .95rem; color: var(--muted); margin: 20px 0 8px; }
+
+.line {
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  padding: 12px 14px; margin-bottom: 10px;
+}
+.line.staff { background: var(--staff); }
+.who { font-size: .75rem; color: var(--muted); margin-bottom: 2px; }
+.zh { font-size: 1rem; }
+.en { font-size: 1.05rem; font-weight: 600; margin-top: 4px; }
+.en.hidden { filter: blur(6px); user-select: none; }
+.actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.btn {
+  border: 1px solid var(--line); background: var(--card); border-radius: 999px;
+  padding: 6px 14px; font-size: .9rem;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.recording { background: var(--bad); border-color: var(--bad); color: #fff; animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .6; } }
+
+/* ===== 單字中文註解 ===== */
+.gloss {
+  position: relative;
+  border-bottom: 2px dotted var(--accent);
+  cursor: help;
+  outline: none;
+}
+.gloss::after, .gloss-probe {
+  font-size: .85rem; font-weight: 500; line-height: 1.4;
+  padding: 6px 10px; border-radius: 8px;
+  max-width: calc(100vw - 32px); width: max-content;
+}
+.gloss::after {
+  content: attr(data-zh);
+  position: absolute; bottom: calc(100% + 6px); left: 50%;
+  transform: translateX(calc(-50% + var(--shift, 0px)));
+  background: var(--text); color: var(--bg);
+  white-space: normal; pointer-events: none; z-index: 20;
+  opacity: 0; visibility: hidden; transition: opacity .12s;
+}
+.gloss:hover::after, .gloss.open::after {
+  opacity: 1; visibility: visible;
+}
+/* 量寬度用的隱形元素 */
+.gloss-probe { position: absolute; visibility: hidden; left: 0; top: 0; }
+/* 英文還模糊時（自己先想的階段），不顯示註解 */
+.en.hidden .gloss::after { display: none; }
+
+/* ===== 跟讀結果 ===== */
+.result { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: .95rem; }
+.score { font-weight: 700; }
+.score.good { color: var(--good); }
+.score.bad { color: var(--bad); }
+.word-ok { color: var(--good); }
+.word-miss { color: var(--bad); background: var(--bad-soft); border-radius: 4px; padding: 0 2px; }
+.heard { color: var(--muted); font-size: .85rem; margin-top: 4px; }
