@@ -1,13 +1,25 @@
 // =====================================================
 // 主程式：載入情境資料、畫出畫面、處理按鈕
-// 內容都在 data/scenarios.json，新增句子不需要改這個檔案
+// 內容都在 data/ 資料夾的 .json 檔，新增句子不需要改這個檔案
 // =====================================================
 const app = document.getElementById('app');
 const pageTitle = document.getElementById('pageTitle');
 const backBtn = document.getElementById('backBtn');
 const speedBtn = document.getElementById('speedBtn');
+const fontBtn = document.getElementById('fontBtn');
 
-let scenarios = [];
+// ---------- 旅程清單：要新增旅程，在這裡加一筆，再放一個 json 檔到 data/ ----------
+const TRIPS = [
+  {
+    id: 'australia', icon: '🇦🇺', title: '澳洲黃金海岸自駕', when: '2027/7/2–7/10 全家旅遊',
+    file: 'data/scenarios.json', accent: 'en-AU', sample: "G'day! How ya going?"
+  },
+  {
+    id: 'canada', icon: '🇨🇦', title: '加拿大亞伯達探親', when: '2027/1/18–5/24 卡加利／愛德蒙頓',
+    file: 'data/canada.json', accent: 'en-CA', sample: "Hi there! How's it going?"
+  }
+];
+const tripData = {}; // 載入過的情境資料，避免重複下載
 
 // ---------- 進度：每句話的最高分，存在手機瀏覽器裡 ----------
 const STORE_KEY = 'travel-english-progress';
@@ -28,24 +40,57 @@ speedBtn.onclick = () => {
 };
 const rate = () => (slow ? 0.7 : 1);
 
+// ---------- 大字模式：給長輩用，會記住設定 ----------
+const FONT_KEY = 'travel-english-bigfont';
+function applyFont(big) {
+  document.documentElement.classList.toggle('big', big);
+  fontBtn.classList.toggle('on', big);
+}
+try { applyFont(localStorage.getItem(FONT_KEY) === '1'); } catch {}
+fontBtn.onclick = () => {
+  const big = !document.documentElement.classList.contains('big');
+  applyFont(big);
+  try { localStorage.setItem(FONT_KEY, big ? '1' : '0'); } catch {}
+};
+
 // 80 分以上算「會了」
 const PASS = 80;
 
-// 一個情境裡所有「我要講的句子」，用來算進度
+// 一個情境裡所有可以跟讀的句子和單字，用來算進度
 function myLines(s) {
   return [
-    ...s.dialogue.map((l, i) => ({ ...l, id: `${s.id}:d${i}` })).filter(l => l.role === 'me'),
-    ...s.keyPhrases.map((l, i) => ({ ...l, role: 'me', id: `${s.id}:k${i}` }))
+    ...(s.dialogue || []).map((l, i) => ({ ...l, id: `${s.id}:d${i}` })).filter(l => l.role === 'me'),
+    ...(s.keyPhrases || []).map((l, i) => ({ ...l, role: 'me', id: `${s.id}:k${i}` })),
+    ...(s.words || []).map((l, i) => ({ ...l, role: 'word', id: `${s.id}:w${i}` }))
   ];
 }
 
-// ---------- 畫面一：情境列表 ----------
-function renderList() {
+// ---------- 畫面一：選旅程 ----------
+function renderHome() {
   pageTitle.textContent = '旅遊英文口說';
   backBtn.hidden = true;
+  app.innerHTML = `<p class="intro">選一個旅程開始練習。</p>`;
+  for (const t of TRIPS) {
+    const card = document.createElement('button');
+    card.className = 'scenario-card';
+    card.innerHTML = `
+      <span class="emoji">${t.icon}</span>
+      <span class="info">
+        <div class="title">${t.title}</div>
+        <div class="when">${t.when}</div>
+      </span>`;
+    card.onclick = () => (location.hash = `#/t/${t.id}`);
+    app.appendChild(card);
+  }
+}
+
+// ---------- 畫面二：某個旅程的情境列表 ----------
+function renderList(trip, scenarios) {
+  pageTitle.textContent = `${trip.icon} ${trip.title}`;
+  backBtn.hidden = false;
   const p = loadProgress();
-  app.innerHTML = `<p class="intro">依照行程排列。看中文 → 自己先講 → 聽示範 → 按 🎤 跟讀打分。</p>`;
-  app.appendChild(voicePicker());
+  app.innerHTML = `<p class="intro">看中文 → 自己先講 → 聽示範 → 按 🎤 跟讀打分。</p>`;
+  app.appendChild(voicePicker(trip));
   for (const s of scenarios) {
     const lines = myLines(s);
     const done = lines.filter(l => (p[l.id] || 0) >= PASS).length;
@@ -55,16 +100,16 @@ function renderList() {
       <span class="emoji">${s.icon}</span>
       <span class="info">
         <div class="title">${s.title}</div>
-        <div class="when">${s.when}・${done}/${lines.length} 句已達 ${PASS} 分</div>
-        <div class="progress"><div style="width:${(done / lines.length) * 100}%"></div></div>
+        <div class="when">${s.when}・${done}/${lines.length} 已達 ${PASS} 分</div>
+        <div class="progress"><div style="width:${lines.length ? (done / lines.length) * 100 : 0}%"></div></div>
       </span>`;
-    card.onclick = () => (location.hash = `#/s/${s.id}`);
+    card.onclick = () => (location.hash = `#/t/${trip.id}/s/${s.id}`);
     app.appendChild(card);
   }
 }
 
 // ---------- 示範聲音選單 ----------
-const REGIONS = { AU: '澳洲', GB: '英國', US: '美國', IE: '愛爾蘭', IN: '印度', ZA: '南非', NZ: '紐西蘭', SG: '新加坡' };
+const REGIONS = { AU: '澳洲', CA: '加拿大', GB: '英國', US: '美國', IE: '愛爾蘭', IN: '印度', ZA: '南非', NZ: '紐西蘭', SG: '新加坡' };
 function voiceLabel(v) {
   const region = REGIONS[v.lang.replace('_', '-').split('-')[1]] || v.lang;
   const hq = /premium|enhanced|natural|neural|online/i.test(v.voiceURI + v.name) ? '・高品質' : '';
@@ -72,7 +117,7 @@ function voiceLabel(v) {
   return `${region}・${name}${hq}`;
 }
 
-function voicePicker() {
+function voicePicker(trip) {
   const box = document.createElement('div');
   box.className = 'voice-picker';
   const fill = () => {
@@ -90,27 +135,40 @@ function voicePicker() {
       <button class="btn" id="voiceTest">試聽</button>`;
     box.querySelector('#voiceSel').onchange = e => {
       Speech.setVoice(e.target.value);
-      Speech.speak("G'day! How ya going?", rate());
+      Speech.speak(trip.sample, rate());
     };
-    box.querySelector('#voiceTest').onclick = () => Speech.speak("G'day! How ya going?", rate());
+    box.querySelector('#voiceTest').onclick = () => Speech.speak(trip.sample, rate());
   };
   fill();
   Speech.onVoicesChanged = () => { if (document.body.contains(box)) fill(); }; // 聲音清單晚載入時更新
   return box;
 }
 
-// ---------- 畫面二：情境練習 ----------
+// ---------- 畫面三：情境練習 ----------
+function sectionTitle(text) {
+  const h = document.createElement('h2');
+  h.className = 'section-title';
+  h.textContent = text;
+  app.appendChild(h);
+}
+
 function renderScenario(s) {
   pageTitle.textContent = `${s.icon} ${s.title}`;
   backBtn.hidden = false;
-  app.innerHTML = `<div class="tips">💡 ${s.tips}</div><h2 class="section-title">對話</h2>`;
+  app.innerHTML = `<div class="tips">💡 ${s.tips}</div>`;
   const vocab = s.vocab || {};
-  s.dialogue.forEach((l, i) => app.appendChild(lineCard({ ...l, id: `${s.id}:d${i}` }, vocab)));
-  const h = document.createElement('h2');
-  h.className = 'section-title';
-  h.textContent = '必備句';
-  app.appendChild(h);
-  s.keyPhrases.forEach((l, i) => app.appendChild(lineCard({ ...l, role: 'me', id: `${s.id}:k${i}` }, vocab)));
+  if (s.dialogue && s.dialogue.length) {
+    sectionTitle('對話');
+    s.dialogue.forEach((l, i) => app.appendChild(lineCard({ ...l, id: `${s.id}:d${i}` }, vocab)));
+  }
+  if (s.keyPhrases && s.keyPhrases.length) {
+    sectionTitle('必備句');
+    s.keyPhrases.forEach((l, i) => app.appendChild(lineCard({ ...l, role: 'me', id: `${s.id}:k${i}` }, vocab)));
+  }
+  if (s.words && s.words.length) {
+    sectionTitle(s.wordsTitle || '常見單字');
+    s.words.forEach((l, i) => app.appendChild(lineCard({ ...l, role: 'word', id: `${s.id}:w${i}` })));
+  }
   window.scrollTo(0, 0);
 }
 
@@ -156,22 +214,28 @@ document.addEventListener('click', e => {
   if (g) { placeTip(g); g.classList.toggle('open'); }
 });
 
-// 一句話的卡片
+// 一句話（或一個單字）的卡片
+// role：me = 我要講的、staff = 對方講的、word = 單字卡
 function lineCard(line, vocab = {}) {
   const el = document.createElement('div');
   const isMe = line.role === 'me';
-  el.className = `line ${isMe ? 'me' : 'staff'}`;
+  const isWord = line.role === 'word';
+  const canPractice = isMe || isWord;
+  el.className = `line ${line.role === 'staff' ? 'staff' : isWord ? 'word' : 'me'}`;
   const best = loadProgress()[line.id];
+  const who = isMe ? '🙋 我' : isWord ? '🪧 單字' : '🧑‍💼 對方';
 
-  // 我要講的句子：英文先模糊，逼自己先想；對方的句子：直接顯示
+  // 我要講的句子：英文先模糊，逼自己先想；對方的句子和單字：直接顯示
   el.innerHTML = `
-    <div class="who">${isMe ? '🙋 我' : '🧑‍💼 對方'}${best != null ? `・最高 ${best} 分` : ''}</div>
-    <div class="zh">${line.zh}</div>
+    <div class="who">${who}${best != null ? `・最高 ${best} 分` : ''}</div>
+    ${isWord ? '' : `<div class="zh">${line.zh}</div>`}
     <div class="en ${isMe ? 'hidden' : ''}">${glossify(line.en, vocab)}</div>
+    ${isWord ? `<div class="zh">${line.zh}</div>` : ''}
+    ${line.note ? `<div class="note">${line.note}</div>` : ''}
     <div class="actions">
       ${isMe ? '<button class="btn" data-act="reveal">👀 看英文</button>' : ''}
       <button class="btn" data-act="play">🔊 聽</button>
-      ${isMe && Speech.canListen ? '<button class="btn primary" data-act="mic">🎤 跟讀</button>' : ''}
+      ${canPractice && Speech.canListen ? '<button class="btn primary" data-act="mic">🎤 跟讀</button>' : ''}
     </div>
     <div class="result" hidden></div>`;
 
@@ -217,22 +281,42 @@ function showResult(box, r) {
   const msg = r.score >= PASS ? '很好！' : '橘色的字再練一下';
   box.innerHTML = `
     <div><span class="score ${cls}">${r.score} 分</span>　${msg}</div>
-    <div>${r.words.map(w => `<span class="${w.ok ? 'word-ok' : 'word-miss'}">${w.text}</span>`).join(' ')}</div>
-    <div class="heard">辨識到：「${r.heard}」</div>`;
+    <div>${r.words.map(w => `<span class="${w.ok ? 'word-ok' : 'word-miss'}">${escapeHtml(w.text)}</span>`).join(' ')}</div>
+    <div class="heard">辨識到：「${escapeHtml(r.heard)}」</div>`;
 }
 
-// ---------- 換頁：網址 #/s/customs 代表進入「入境與海關」 ----------
-function route() {
-  const m = location.hash.match(/^#\/s\/(.+)$/);
-  const s = m && scenarios.find(x => x.id === m[1]);
-  s ? renderScenario(s) : renderList();
+// ---------- 換頁 ----------
+// #/t/canada            → 加拿大的情境列表
+// #/t/canada/s/ca-911   → 加拿大的某個情境
+// #/s/customs           → 舊網址，視為澳洲
+function loadTrip(trip) {
+  if (tripData[trip.id]) return Promise.resolve(tripData[trip.id]);
+  return fetch(trip.file).then(r => r.json()).then(d => (tripData[trip.id] = d));
 }
-backBtn.onclick = () => (location.hash = '');
+
+function route() {
+  let m = location.hash.match(/^#\/t\/([^/]+)(?:\/s\/(.+))?$/);
+  const old = location.hash.match(/^#\/s\/(.+)$/);
+  if (old) m = [null, 'australia', old[1]];
+  const trip = m && TRIPS.find(t => t.id === m[1]);
+  if (!trip) return renderHome();
+
+  Speech.setAccent(trip.accent);
+  loadTrip(trip)
+    .then(scenarios => {
+      const s = m[2] && scenarios.find(x => x.id === m[2]);
+      s ? renderScenario(s) : renderList(trip, scenarios);
+    })
+    .catch(() => { app.textContent = '載入情境資料失敗，請用 serve.ps1 開啟（不能直接雙擊 index.html）。'; });
+}
+
+// 返回：情境 → 情境列表 → 選旅程
+backBtn.onclick = () => {
+  const m = location.hash.match(/^#\/t\/([^/]+)\/s\//) || (location.hash.match(/^#\/s\//) && [null, 'australia']);
+  location.hash = m ? `#/t/${m[1]}` : '';
+};
 window.addEventListener('hashchange', route);
 
 // ---------- 啟動 ----------
 document.getElementById('noMic').hidden = Speech.canListen;
-fetch('data/scenarios.json')
-  .then(r => r.json())
-  .then(data => { scenarios = data; route(); })
-  .catch(() => { app.textContent = '載入情境資料失敗，請用 serve.ps1 開啟（不能直接雙擊 index.html）。'; });
+route();

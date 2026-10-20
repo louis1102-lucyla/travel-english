@@ -16,14 +16,27 @@ const Speech = (() => {
     /eloquence|speech\.synthesis\.voice/i.test(v.voiceURI) ||
     ROBOT_NAMES.some(n => v.name === n || v.name.startsWith(n + ' '));
 
-  // 幫聲音打分數：澳洲口音最優先，高品質（Premium/Enhanced/Natural）加分
+  // 目前旅程的口音：澳洲 en-AU、加拿大 en-CA
+  // 每種口音的優先順序（加拿大腔很少見，美國腔最接近）
+  const ACCENT_ORDER = {
+    'en-AU': ['en-AU', 'en-NZ', 'en-GB'],
+    'en-CA': ['en-CA', 'en-US', 'en-GB']
+  };
+  let accent = 'en-AU';
+
+  // 幫聲音打分數：目前口音最優先，高品質（Premium/Enhanced/Natural）加分
   function rank(v) {
-    let s = v.lang === 'en-AU' ? 30 : v.lang === 'en-GB' ? 20 : 10;
+    const idx = ACCENT_ORDER[accent].indexOf(v.lang.replace('_', '-'));
+    let s = idx >= 0 ? 30 - idx * 10 : 5;
     if (/premium/i.test(v.voiceURI + v.name)) s += 5;
     else if (/enhanced|natural|neural|online/i.test(v.voiceURI + v.name)) s += 4;
-    if (/^(Karen|Lee|Matilda|Catherine|Natasha|William)\b/.test(v.name)) s += 2; // 常見好聽的澳洲聲音
+    if (accent === 'en-AU' && /^(Karen|Lee|Matilda|Catherine|Natasha|William)\b/.test(v.name)) s += 2; // 好聽的澳洲聲音
+    if (accent === 'en-CA' && /^(Samantha|Ava|Allison|Susan|Tom|Evan|Nathan)\b/.test(v.name)) s += 2; // 好聽的北美聲音
     return s;
   }
+
+  // 每種口音分開記住你選的聲音（澳洲沿用原本的設定）
+  const voiceKey = () => (accent === 'en-AU' ? VOICE_KEY : `${VOICE_KEY}-${accent}`);
 
   // 可以選的英文聲音（已排除機器人聲，好的排前面）
   function listVoices() {
@@ -37,7 +50,7 @@ const Speech = (() => {
   function pickVoice() {
     const voices = listVoices();
     let saved = null;
-    try { saved = localStorage.getItem(VOICE_KEY); } catch {}
+    try { saved = localStorage.getItem(voiceKey()); } catch {}
     voice = voices.find(v => v.voiceURI === saved) || voices[0] || null;
     onVoicesChanged();
   }
@@ -47,10 +60,17 @@ const Speech = (() => {
   }
 
   function setVoice(uri) {
-    try { localStorage.setItem(VOICE_KEY, uri); } catch {}
+    try { localStorage.setItem(voiceKey(), uri); } catch {}
     pickVoice();
   }
   const currentVoice = () => voice;
+
+  // 切換旅程時呼叫，例如 setAccent('en-CA')
+  function setAccent(lang) {
+    if (!ACCENT_ORDER[lang] || lang === accent) return;
+    accent = lang;
+    if ('speechSynthesis' in window) pickVoice();
+  }
 
   // 防止「開頭被吃掉一兩個音節」：
   // 電腦/藍牙耳機的音效裝置閒置時會休眠，聲音開始後才醒來，開頭就被切掉。
@@ -111,7 +131,7 @@ const Speech = (() => {
   function listen() {
     return new Promise((resolve, reject) => {
       const rec = new Recognition();
-      rec.lang = 'en-AU';
+      rec.lang = accent; // 用目前旅程的口音來辨識
       rec.interimResults = false;
       rec.maxAlternatives = 3; // 取 3 個候選，挑最接近的打分
       rec.onresult = e => resolve(Array.from(e.results[0]).map(a => a.transcript));
@@ -145,12 +165,17 @@ const Speech = (() => {
     return text
       .toLowerCase()
       .replace(/[’‘]/g, "'")
+      // 金額：$50 → 50 dollars；$12.50 → 12 50（念法是 twelve fifty）
+      .replace(/\$(\d+)\.(\d\d)\b/g, '$1 $2')
+      .replace(/\$(\d+)/g, '$1 dollars')
       .replace(/[^a-z0-9' ]/g, ' ')
       .split(/\s+/)
       .filter(Boolean)
       .flatMap(w => {
         if (CONTRACTIONS[w]) return CONTRACTIONS[w].split(' ');
         if (/^\d+$/.test(w) && numberWords(+w)) return numberWords(+w);
+        // 三位數以上（例如 911、811 電話號碼）一個一個數字念
+        if (/^\d{3,}$/.test(w)) return w.split('').map(d => NUMBERS[+d]);
         return [w];
       });
   }
@@ -202,7 +227,7 @@ const Speech = (() => {
 
   return {
     speak, listen, canListen, compare, bestMatch,
-    listVoices, setVoice, currentVoice,
+    listVoices, setVoice, currentVoice, setAccent,
     set onVoicesChanged(fn) { onVoicesChanged = fn; }
   };
 })();

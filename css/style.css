@@ -29,6 +29,8 @@
 }
 
 * { box-sizing: border-box; }
+/* 大字模式：整體字放大約 1.25 倍（所有字級都用 rem，會一起變大） */
+html.big { font-size: 20px; }
 body {
   margin: 0;
   background: var(--bg);
@@ -92,6 +94,10 @@ main { max-width: 640px; margin: 0 auto; padding: 16px; }
   padding: 12px 14px; margin-bottom: 10px;
 }
 .line.staff { background: var(--staff); }
+/* 單字卡：英文像路牌一樣大字粗體 */
+.line.word .en { font-size: 1.25rem; font-weight: 800; letter-spacing: .02em; margin-top: 0; }
+.line.word .zh { margin-top: 2px; }
+.note { color: var(--muted); font-size: .85rem; margin-top: 4px; }
 .who { font-size: .75rem; color: var(--muted); margin-bottom: 2px; }
 .zh { font-size: 1rem; }
 .en { font-size: 1.05rem; font-weight: 600; margin-top: 4px; }
